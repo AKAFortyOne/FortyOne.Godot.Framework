@@ -1,0 +1,34 @@
+bin/
+obj/
+/packages/
+riderModule.iml
+/_ReSharper.Caches/
+
+# Godot 4+ specific ignores
+.godot/
+/android/
+
+# VSCode
+.vscode
+
+# Obsidian
+.Obsidian
+
+# Jetbrains Rider
+.idea
+.vs
+
+bin
+obj
+
+# Source Generator
+modules/mono/editor/SDK/**/bin
+modules/mono/editor/SDK/**/obj
+
+# Unit Test
+Tests/.runsettings
+Tests/bin
+Tests/obj
+
+FodyWeavers.xsd
+.editorconfig

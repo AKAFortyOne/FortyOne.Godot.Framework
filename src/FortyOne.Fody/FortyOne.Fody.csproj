@@ -1,0 +1,17 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>netstandard2.0</TargetFramework>
+		<LangVersion>Latest</LangVersion>
+		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
+		<PackageId>FortyOne.Fody</PackageId>
+		<Version>1.0.0</Version>
+		<IncludeBuildOutput>false</IncludeBuildOutput>
+	</PropertyGroup>
+	<ItemGroup>
+		<PackageReference Include="FodyHelpers" Version="6.9.3" PrivateAssets="All" />
+	</ItemGroup>
+	<ItemGroup>
+		<None Include="$(OutputPath)FortyOne.Fody.dll" Pack="true" PackagePath="weaver/" />
+		<None Include="build\FortyOne.Fody.props" Pack="true" PackagePath="build/" />
+	</ItemGroup>
+</Project>
