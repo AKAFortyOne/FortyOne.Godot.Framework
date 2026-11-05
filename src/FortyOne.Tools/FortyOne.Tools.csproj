@@ -8,9 +8,9 @@
     </PropertyGroup>
     <ItemGroup>
         <PackageReference Include="GodotSharp" Version="4.7.2" />
-        <ProjectReference Include="../FortyOne.SourceGenerators/framework/Framework.csproj"
+        <ProjectReference Include="../FortyOne.SourceGenerators/framework/SourceGenerator.Framework.csproj"
                           OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
-        <ProjectReference Include="../FortyOne.SourceGenerators/game/Game.csproj"
+        <ProjectReference Include="../FortyOne.SourceGenerators/game/SourceGenerator.Game.csproj"
                           ReferenceOutputAssembly="false" />
         <None Include="..\FortyOne.SourceGenerators/game/bin/$(Configuration)/netstandard2.0/Game.dll"
               Pack="true" PackagePath="analyzers/dotnet/cs/" />

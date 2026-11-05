@@ -10,6 +10,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 
 namespace FortyOne.Tools;
 
@@ -118,7 +119,7 @@ public class SubscribeFailedException(string message) : Exception($"[Subscribe] 
 public class PublishFailedException(string message) : Exception($"[Publish] {message}");
 
 
-
+[EditorBrowsable(EditorBrowsableState.Never)]
 public static class EventBus<TSender, TArgs>
 	where TSender : GodotObject
 	where TArgs : struct, ISubscribableEventArgs<TSender, TArgs>
@@ -509,7 +510,7 @@ public static class EventBus<TSender, TArgs>
 	public static bool HasAnyGlobalBroadcast => Subscriptions.SubscriptionsMapping.GlobalBroadcastCount != 0;
 	
 	#region Publish
-	internal static class Relay
+	public static class Relay
 	{
 		// Godot -> C#: godot发送的信号，C#的sub也能接收到。
 		public static void OnEmitted(GodotObject? source, TArgs args)
@@ -534,7 +535,8 @@ public static class EventBus<TSender, TArgs>
 		}
 	}
 	
-	internal static void ExecutePublishSingle(TSender? sender, GodotObject? receiver, TArgs args)
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	public static void ExecutePublishSingle(TSender? sender, GodotObject? receiver, TArgs args)
 	{
 		var senderInstanceId = sender.GetValidInstanceIdOrZero();
 		var receiverInstanceId = receiver.GetValidInstanceIdOrZero();
