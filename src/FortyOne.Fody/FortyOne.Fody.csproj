@@ -1,10 +1,15 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
+		<PackageId>FortyOne.Fody</PackageId>
+		<Version>1.0.0</Version>
+		<Authors>FortyOne</Authors>
+		<Description>FortyOne Godot C# Framework: Fody</Description>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<RepositoryUrl>https://github.com/AKAFortyOne/FortyOne.Godot.Framework</RepositoryUrl>
+		
 		<TargetFramework>netstandard2.0</TargetFramework>
 		<LangVersion>Latest</LangVersion>
 		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
-		<PackageId>FortyOne.Fody</PackageId>
-		<Version>1.0.0</Version>
 		<IncludeBuildOutput>false</IncludeBuildOutput>
 	</PropertyGroup>
 	<ItemGroup>
