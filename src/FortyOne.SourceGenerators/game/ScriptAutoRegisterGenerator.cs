@@ -3,10 +3,8 @@
 using FortyOne.SourceGenerators.Helpers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.Text;
 using SourceGenerator.Helpers;
 using System.Collections.Immutable;
-using System.Text;
 
 namespace FortyOne.SourceGenerators
 {
@@ -48,7 +46,7 @@ namespace FortyOne.SourceGenerators
 				{
 					string uniqueHint = $"{groupClass.First().NamespaceName}_ScriptAutoRegister.g.cs";
 					BuildAutoRegister(sourceCode, groupClass);
-					sourceProductionContext.AddSource(uniqueHint, SourceText.From(sourceCode.ToString(),  Encoding.UTF8));
+					sourceProductionContext.CreateNewFile(uniqueHint, sourceCode);
 					sourceCode.Clear();
 				}
 			});

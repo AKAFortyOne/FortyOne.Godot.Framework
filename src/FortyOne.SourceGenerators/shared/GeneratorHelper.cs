@@ -1,5 +1,8 @@
 ﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Text;
+using SourceGenerator.Helpers;
 using System.Collections.Immutable;
+using System.Text;
 
 // 避免record报错：
 // The predefined type 'System.Runtime.CompilerServices.IsExternalInit' must be defined or imported in order to declare init-only setter.
@@ -13,7 +16,7 @@ namespace FortyOne.SourceGenerators.Helpers
 	public static class GeneratorHelper
 	{
 		public readonly record struct ParsedParameter(string OriginalText, string TypeName, string ParameterName, bool IsFirst);
-	
+		
 		public static ImmutableArray<ParsedParameter> ProcessParameters(ImmutableArray<string> originalParameters)
 		{
 			List<ParsedParameter> parsedParameters = [];
@@ -57,6 +60,9 @@ namespace FortyOne.SourceGenerators.Helpers
 			string restStr = original.Substring(1, original.Length - 1);
 			return firstUpper + restStr;
 		}
+
+		public static void CreateNewFile(this SourceProductionContext sourceProductionContext, string fileName, IndentedStringBuilder stringBuilder)
+			=> sourceProductionContext.AddSource(fileName, SourceText.From(stringBuilder.ToString(),  Encoding.UTF8));
 		
 		public static void ReportDiagnostic(
 			SourceProductionContext sourceProductionContext,
@@ -71,6 +77,15 @@ namespace FortyOne.SourceGenerators.Helpers
 						id, title, messageFormat, "FortyOne.SourceGenerators", location, true),
 					Location.None)
 			);
+		}
+		
+		public static TValue GetOrAdd<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, TKey key, Func<TKey, TValue> valueFactory) where TKey : notnull
+		{
+			if (dictionary.TryGetValue(key, out var value)) return value;
+			
+			value = valueFactory(key);
+			dictionary.Add(key, value);
+			return value;
 		}
 	}
 }

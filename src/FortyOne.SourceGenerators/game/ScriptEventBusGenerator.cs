@@ -1,10 +1,8 @@
 ﻿using FortyOne.SourceGenerators.Helpers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.Text;
 using SourceGenerator.Helpers;
 using System.Collections.Immutable;
-using System.Text;
 using ParsedParameter = FortyOne.SourceGenerators.Helpers.GeneratorHelper.ParsedParameter;
 
 namespace FortyOne.SourceGenerators
@@ -88,7 +86,7 @@ namespace FortyOne.SourceGenerators
 				{
 					string uniqueHint = $"{groupSignal.First().NamespaceName}.{groupSignal.First().ClassName}_ScriptSignalSubscribe.g.cs";
 					BuildEventBus(sourceCode, groupSignal);
-					sourceProductionContext.AddSource(uniqueHint, SourceText.From(sourceCode.ToString(),  Encoding.UTF8));
+					sourceProductionContext.CreateNewFile(uniqueHint, sourceCode);
 					sourceCode.Clear();
 				}
 			});

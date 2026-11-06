@@ -87,11 +87,11 @@ namespace FortyOne.SourceGenerators
 			context.RegisterSourceOutput(results, static (sourceProductionContext, signalInfos) => {
 				IndentedStringBuilder scriptNativeSignalBridgeBuilder = new IndentedStringBuilder();
 				BuildNativeSignalBridge(scriptNativeSignalBridgeBuilder, signalInfos);
-				sourceProductionContext.AddSource("ScriptNativeSignalBridge.g.cs", scriptNativeSignalBridgeBuilder.ToString());
+				sourceProductionContext.CreateNewFile("ScriptNativeSignalBridge.g.cs", scriptNativeSignalBridgeBuilder);
 				
 				IndentedStringBuilder eventLifecycleManagerBuilder = new IndentedStringBuilder();
 				BuildEventLifecycleManager(eventLifecycleManagerBuilder, signalInfos);
-				sourceProductionContext.AddSource("ScriptEventTemplate.native.g.cs", eventLifecycleManagerBuilder.ToString());
+				sourceProductionContext.CreateNewFile("ScriptEventTemplate.native.g.cs", eventLifecycleManagerBuilder);
 			});
 		}
 

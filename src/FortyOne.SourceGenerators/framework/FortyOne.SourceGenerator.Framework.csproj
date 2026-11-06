@@ -5,7 +5,7 @@
         <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
         <Nullable>enable</Nullable>
         <ImplicitUsings>true</ImplicitUsings>
-        <RootNamespace>SourceGenerator.Framework</RootNamespace>
+        <RootNamespace>FortyOne.SourceGenerator.Framework</RootNamespace>
     </PropertyGroup>
     <ItemGroup>
         <Compile Include="..\shared\**\*.cs" LinkBase="shared" />
