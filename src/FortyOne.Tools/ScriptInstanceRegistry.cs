@@ -8,7 +8,6 @@ using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
-#nullable enable
 #pragma warning disable CS0618 // Type or member is obsolete
 
 namespace FortyOne.Tools;
@@ -26,9 +25,9 @@ public static class ScriptInstanceRegistry
 	[Obsolete("Internal class. You should NOT use it directly in normal scenarios. Directly use may cause unexpected results.")]
 	internal class TypeBucket(Type currentType, bool isExact)
 	{
-		public readonly Type CurrentType = currentType;
-		public readonly bool IsExact = isExact;
-		public uint ModificationVersion;
+		internal readonly Type CurrentType = currentType;
+		internal readonly bool IsExact = isExact;
+		internal uint ModificationVersion;
 		
 		private readonly List<(ulong InstanceId, WeakReference<GodotObject> InstanceWeakRef)> _activeInstances = [];
 		private readonly Dictionary<int, int> _indexBySlot = [];
@@ -57,10 +56,10 @@ public static class ScriptInstanceRegistry
 		}
 		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public bool Contains(int slot) => _indexBySlot.TryGetValue(slot, out _);
+		internal bool Contains(int slot) => _indexBySlot.TryGetValue(slot, out _);
 		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public bool TryGetInstance(int slot, out ulong instanceId, [MaybeNullWhen(false)] out GodotObject instance)
+		internal bool TryGetInstance(int slot, out ulong instanceId, [MaybeNullWhen(false)] out GodotObject instance)
 		{
 			instanceId = 0;
 			instance = null;
@@ -72,14 +71,14 @@ public static class ScriptInstanceRegistry
 
 		#region BucketEnumerator
 		internal BucketEnumerator GetEnumerator() => new BucketEnumerator(this);
-		public ref struct BucketEnumerator
+		internal ref struct BucketEnumerator
 		{
-			public bool IsInitialized => _currentBucket is not null;
+			internal bool IsInitialized => _currentBucket is not null;
 			
 			private readonly TypeBucket _currentBucket;
 			private int _candidateIndex;
 			
-			public (ulong instanceId, GodotObject instance) Current
+			internal (ulong instanceId, GodotObject instance) Current
 			{
 				get;
 				private set;
@@ -91,7 +90,7 @@ public static class ScriptInstanceRegistry
 				_candidateIndex = -1;
 			}
 
-			public bool MoveNext()
+			internal bool MoveNext()
 			{
 				while (true)
 				{
@@ -214,71 +213,65 @@ public static class ScriptInstanceRegistry
 	#endregion
 
 	#region Resolve
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static InstanceHandle.ResolveHandleAs Resolve(InstanceHandle handle) => new InstanceHandle.ResolveHandleAs(handle);
-	
 	public readonly struct InstanceHandle : IEquatable<InstanceHandle>
 	{
-		public readonly int Slot;
-		public readonly ulong Validator;
+		internal readonly int Slot;
+		internal readonly ulong Validator;
 		private readonly bool _flag;
 		
-		[EditorBrowsable(EditorBrowsableState.Never)]
-		[Obsolete("Internal Constructor. Not intended for general use. This handle instance is allocated by class InstanceQuery and should NOT be instantiated manually. Directly use may cause unexpected behaviors.")]
-		internal InstanceHandle(ulong instanceId)
+		private readonly WeakReference<GodotObject> _instance;
+		
+		internal InstanceHandle(ulong instanceId, GodotObject instance)
 		{
 			Slot = ExtractSlotIndex(instanceId);
 			Validator = ExtractValidator(instanceId);
 			_flag = (instanceId >> 63) != 0;
+			_instance = new WeakReference<GodotObject>(instance);
 		}
 		
 		public bool Equals(InstanceHandle other) => Slot == other.Slot && Validator == other.Validator;
 		public override bool Equals(object? obj) => obj is InstanceHandle other && Equals(other);
 		public override int GetHashCode() => HashCode.Combine(Slot, Validator);
 		
-		public readonly struct ResolveHandleAs
+		public ulong AsId()
 		{
-			private readonly InstanceHandle _handle;
-		
-			internal ResolveHandleAs(InstanceHandle handle) => _handle = handle;
-		
-			public ulong AsId()
+			ulong id = (uint)Slot & 0xFFFFFFUL;
+			id |= (Validator & 0x7FFFFFFFFFUL) << 24;
+			if (_flag)
 			{
-				ulong id = (uint)_handle.Slot & 0xFFFFFFUL;
-				id |= (_handle.Validator & 0x7FFFFFFFFFUL) << 24;
-				if (_handle._flag)
-				{
-					id |= 1UL << 63;
-				}
-				
-				if (_handle.Slot < _registeredBucketsBySlot.Length &&
-				    _registeredBucketsBySlot[_handle.Slot] is { } chain &&
-				    chain[0].TryGetInstance(_handle.Slot, out ulong instanceId, out _) &&
-				    instanceId == id)
-				{
-					return id;
-				}
-				return 0;
+				id |= 1UL << 63;
 			}
-		
-			public T AsInstance<T>() where T : class
-				=> TryAsInstance<T>(out var inst) ? inst : throw new ArgumentException($"[ScriptInstanceRegistry.Resolve] Type: {typeof(T).Name} Invalid instance handle");
+			
+			if (Slot < _registeredBucketsBySlot.Length &&
+			    _registeredBucketsBySlot[Slot] is { } chain &&
+			    chain[0].TryGetInstance(Slot, out ulong instanceId, out _) &&
+			    instanceId == id)
+			{
+				return id;
+			}
+			return 0;
+		}
+	
+		public T AsInstance<T>() where T : class
+			=> TryAsInstance<T>(out var inst)
+				? inst
+				: throw new ArgumentException($"[InstanceHandle.AsInstance] Type: {typeof(T).Name} Invalid instance handle");
 
-			public bool TryAsInstance<T>([MaybeNullWhen(false)] out T instance) where T : class
+		public bool TryAsInstance<T>([MaybeNullWhen(false)] out T instance) where T : class
+		{
+			if (_instance.TryGetValid(out var inst) &&
+			    inst is T typed &&
+			    Slot < _registeredBucketsBySlot.Length &&
+			    _registeredBucketsBySlot[Slot] is { } chain &&
+			    chain[0].TryGetInstance(Slot, out ulong instanceId, out _) &&
+			    ExtractSlotIndex(instanceId) == Slot &&
+			    ExtractValidator(instanceId) == Validator)
 			{
-				if (_handle.Slot < _registeredBucketsBySlot.Length &&
-				    _registeredBucketsBySlot[_handle.Slot] is { } chain &&
-				    chain[0].TryGetInstance(_handle.Slot, out ulong instanceId, out var candidate) &&
-				    ExtractSlotIndex(instanceId) == _handle.Slot &&
-				    ExtractValidator(instanceId) == _handle.Validator &&
-				    candidate is T typed)
-				{
-					instance = typed;
-					return true;
-				}
-				instance = null;
-				return false;
+				instance = typed;
+				return true;
 			}
+			instance = null;
+			return false;
 		}
 	}
 	#endregion
@@ -351,15 +344,13 @@ public static class ScriptInstanceRegistry
 				private set;
 			} = default;
 
-			public GodotObject CurrentInstance
+			internal GodotObject CurrentInstance
 			{
 				get;
 				private set;
 			} = null!;
 			
-			[EditorBrowsable(EditorBrowsableState.Never)]
-			[Obsolete("Internal Constructor. Use 'ScriptInstanceRegistry.GetEnumerator()' instead. Directly use may cause unexpected results.")]
-			public InstanceEnumerator(InstanceQuery query)
+			internal InstanceEnumerator(InstanceQuery query)
 			{
 				_fromBuckets = query._fromBuckets;
 				_requireBuckets = query._requireBuckets;
@@ -369,6 +360,7 @@ public static class ScriptInstanceRegistry
 				_fromBucketsIndex = 0;
 				_currentExpectedVersion = query._fromBuckets.Length >= 1 ? query._fromBuckets[0].ModificationVersion : 0;
 			}
+			
 			public bool MoveNext()
 			{
 				while (_fromBucketsIndex < _fromBuckets.Length)
@@ -428,7 +420,7 @@ public static class ScriptInstanceRegistry
 						
 						if (_predicate is not null && !_predicate(instance)) continue;
 						
-						Current = new InstanceHandle(instanceId);
+						Current = new InstanceHandle(instanceId, instance);
 						CurrentInstance = instance;
 						return true;
 					}

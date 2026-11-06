@@ -382,7 +382,7 @@ public static class EventBus<TSender, TArgs>
 					{
 						foreach (ScriptInstanceRegistry.InstanceHandle senderInstanceHandle in senderInstances)
 						{
-							NativeConnect.TryConnectGodotNative(ScriptInstanceRegistry.Resolve(senderInstanceHandle).AsInstance<TSender>(), TArgs.Desc.SignalName, TArgs.Desc.OnNativeSignalReceived);
+							NativeConnect.TryConnectGodotNative(senderInstanceHandle.AsInstance<TSender>(), TArgs.Desc.SignalName, TArgs.Desc.OnNativeSignalReceived);
 						}
 					}
 				}
@@ -428,9 +428,8 @@ public static class EventBus<TSender, TArgs>
 				if (GlobalBroadcastCount != 0 || !ScriptInstanceRegistry.TryQuery<TSender>(out var senderInstances)) return;
 				foreach (var senderInstanceHandle in senderInstances)
 				{
-					var senderResolveAs = ScriptInstanceRegistry.Resolve(senderInstanceHandle);
-					if (SenderToReceiversIndex.ContainsKey(senderResolveAs.AsId())) continue;
-					NativeConnect.TryDisconnectGodotNative(senderResolveAs.AsInstance<TSender>(), TArgs.Desc.SignalName, TArgs.Desc.OnNativeSignalReceived);
+					if (SenderToReceiversIndex.ContainsKey(senderInstanceHandle.AsId())) continue;
+					NativeConnect.TryDisconnectGodotNative(senderInstanceHandle.AsInstance<TSender>(), TArgs.Desc.SignalName, TArgs.Desc.OnNativeSignalReceived);
 				}
 			}
 			#endregion
