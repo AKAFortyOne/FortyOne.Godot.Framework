@@ -579,17 +579,9 @@ public static class ScriptInstanceRegistry
 			}
 			return false;
 		}
-		
-		#region NoPredicate
-		public int Count() => Count(static _ => true);
-		public bool Any() => First(static _ => true, out _);
-		public bool All() => All(static _ => true);
-		public bool First([MaybeNullWhen(false)] out GodotObject instance) => First(static _ => true, out instance);
-		public GodotObject Single() => Single(static _ => true);
-		public bool TrySingle([MaybeNullWhen(false)] out GodotObject instance) => TrySingle(static _ => true, out instance);
-		#endregion
 
-		#region HasPredicate
+		#region Predicate
+		public int Count() => Count(static _ => true);
 		public int Count(Func<InstanceHandle, bool> predicate1)
 		{
 			ArgumentNullException.ThrowIfNull(predicate1);
@@ -605,7 +597,10 @@ public static class ScriptInstanceRegistry
 			return matchCount;
 		}
 		
+		public bool First([MaybeNullWhen(false)] out GodotObject instance) => First<GodotObject>(static _ => true, out instance);
 		public bool First(Func<InstanceHandle, bool> predicate1, [MaybeNullWhen(false)] out GodotObject instance) => First<GodotObject>(predicate1, out instance);
+		
+		public bool First<T>([MaybeNullWhen(false)] out T instance) where T : GodotObject => First(static _ => true, out instance);
 		public bool First<T>(Func<InstanceHandle, bool> predicate1, [MaybeNullWhen(false)] out T instance) where T : GodotObject
 		{
 			ArgumentNullException.ThrowIfNull(predicate1);
@@ -620,8 +615,10 @@ public static class ScriptInstanceRegistry
 			return false;
 		}
 		
+		public bool Any() => First(static _ => true, out _);
 		public bool Any(Func<InstanceHandle, bool> predicate1) => First(predicate1, out _);
 		
+		public bool All() => All(static _ => true);
 		public bool All(Func<InstanceHandle, bool> predicate1)
 		{
 			ArgumentNullException.ThrowIfNull(predicate1);
@@ -636,7 +633,11 @@ public static class ScriptInstanceRegistry
 			return true;
 		}
 
+		
+		public GodotObject Single() => Single<GodotObject>(static _ => true);
 		public GodotObject Single(Func<InstanceHandle, bool> predicate1) => Single<GodotObject>(predicate1);
+		
+		public T Single<T>() where T : GodotObject => Single<T>(static _ => true);
 		public T Single<T>(Func<InstanceHandle, bool> predicate1) where T : GodotObject
 		{
 			ArgumentNullException.ThrowIfNull(predicate1);
@@ -652,7 +653,10 @@ public static class ScriptInstanceRegistry
 			return matchedInstance ?? throw new InvalidOperationException($"{nameof(GodotObject)}: no match");
 		}
 		
+		public bool TrySingle([MaybeNullWhen(false)] out GodotObject instance) => TrySingle<GodotObject>(static _ => true, out instance);
 		public bool TrySingle(Func<InstanceHandle, bool> predicate1, [MaybeNullWhen(false)] out GodotObject instance) => TrySingle<GodotObject>(predicate1, out instance);
+		
+		public bool TrySingle<T>([MaybeNullWhen(false)] out T instance) where T : GodotObject => TrySingle(static _ => true, out instance);
 		public bool TrySingle<T>(Func<InstanceHandle, bool> predicate1, [MaybeNullWhen(false)] out T instance) where T : GodotObject
 		{
 			ArgumentNullException.ThrowIfNull(predicate1);
