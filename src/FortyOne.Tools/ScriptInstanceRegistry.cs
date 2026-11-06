@@ -59,14 +59,13 @@ public static class ScriptInstanceRegistry
 		internal bool Contains(int slot) => _indexBySlot.TryGetValue(slot, out _);
 		
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		internal bool TryGetInstance(int slot, out ulong instanceId, [MaybeNullWhen(false)] out GodotObject instance)
+		internal bool TryGetInstance(int slot, out ulong instanceId)
 		{
 			instanceId = 0;
-			instance = null;
 			if (!_indexBySlot.TryGetValue(slot, out int index)) return false;
 			
-			(instanceId, var instanceWeakRef) = _activeInstances[index];
-			return instanceWeakRef.TryGetValid(out instance);
+			(instanceId, _) = _activeInstances[index];
+			return true;
 		}
 
 		#region BucketEnumerator
@@ -78,7 +77,7 @@ public static class ScriptInstanceRegistry
 			private readonly TypeBucket _currentBucket;
 			private int _candidateIndex;
 			
-			internal (ulong instanceId, GodotObject instance) Current
+			internal (ulong instanceId, WeakReference<GodotObject> instanceWeakRef) Current
 			{
 				get;
 				private set;
@@ -98,11 +97,11 @@ public static class ScriptInstanceRegistry
 					if (_candidateIndex >= _currentBucket._activeInstances.Count) break;
 					
 					(ulong instanceId, var instanceWeakRef) = _currentBucket._activeInstances[_candidateIndex];
-					if (!instanceWeakRef.TryGetValid(out var instance)) continue;
-					Current = (instanceId, instance);
+					if (!instanceWeakRef.TryGetValid(out _)) continue;
+					Current = (instanceId, instanceWeakRef);
 					return true;
 				}
-				Current = default!;
+				Current = default;
 				return false;
 			}
 		}
@@ -216,42 +215,44 @@ public static class ScriptInstanceRegistry
 	public readonly struct InstanceHandle : IEquatable<InstanceHandle>
 	{
 		internal readonly int Slot;
-		internal readonly ulong Validator;
+		private readonly ulong _validator;
 		private readonly bool _flag;
 		
 		private readonly WeakReference<GodotObject> _instance;
 		
-		internal InstanceHandle(ulong instanceId, GodotObject instance)
+		internal InstanceHandle(ulong instanceId, WeakReference<GodotObject> instanceWeakRef)
 		{
 			Slot = ExtractSlotIndex(instanceId);
-			Validator = ExtractValidator(instanceId);
+			_validator = ExtractValidator(instanceId);
 			_flag = (instanceId >> 63) != 0;
-			_instance = new WeakReference<GodotObject>(instance);
+			_instance = instanceWeakRef;
 		}
 		
-		public bool Equals(InstanceHandle other) => Slot == other.Slot && Validator == other.Validator;
+		public bool Equals(InstanceHandle other) => Slot == other.Slot && _validator == other._validator;
 		public override bool Equals(object? obj) => obj is InstanceHandle other && Equals(other);
-		public override int GetHashCode() => HashCode.Combine(Slot, Validator);
-		
+		public override int GetHashCode() => HashCode.Combine(Slot, _validator);
+
+		public bool IsValid() 
+			=> _instance.TryGetValid(out _)
+			   && Slot < _registeredBucketsBySlot.Length
+			   && _registeredBucketsBySlot[Slot] is{ } chain
+			   && chain[0].TryGetInstance(Slot, out ulong instanceId)
+			   && ExtractSlotIndex(instanceId) == Slot
+			   && ExtractValidator(instanceId) == _validator;
+	
 		public ulong AsId()
 		{
+			if (!IsValid()) return 0;
+			
 			ulong id = (uint)Slot & 0xFFFFFFUL;
-			id |= (Validator & 0x7FFFFFFFFFUL) << 24;
+			id |= (_validator & 0x7FFFFFFFFFUL) << 24;
 			if (_flag)
 			{
 				id |= 1UL << 63;
 			}
-			
-			if (Slot < _registeredBucketsBySlot.Length &&
-			    _registeredBucketsBySlot[Slot] is { } chain &&
-			    chain[0].TryGetInstance(Slot, out ulong instanceId, out _) &&
-			    instanceId == id)
-			{
-				return id;
-			}
-			return 0;
+			return id;
 		}
-	
+		
 		public T AsInstance<T>() where T : class
 			=> TryAsInstance<T>(out var inst)
 				? inst
@@ -259,19 +260,15 @@ public static class ScriptInstanceRegistry
 
 		public bool TryAsInstance<T>([MaybeNullWhen(false)] out T instance) where T : class
 		{
-			if (_instance.TryGetValid(out var inst) &&
-			    inst is T typed &&
-			    Slot < _registeredBucketsBySlot.Length &&
-			    _registeredBucketsBySlot[Slot] is { } chain &&
-			    chain[0].TryGetInstance(Slot, out ulong instanceId, out _) &&
-			    ExtractSlotIndex(instanceId) == Slot &&
-			    ExtractValidator(instanceId) == Validator)
-			{
-				instance = typed;
-				return true;
-			}
 			instance = null;
-			return false;
+			if (!IsValid() ||
+			    !_instance.TryGetValid(out var inst) ||
+			    inst is not T typed)
+			{
+				return false;
+			}
+			instance = typed;
+			return true;
 		}
 	}
 	#endregion
@@ -309,7 +306,7 @@ public static class ScriptInstanceRegistry
 		private readonly TypeBucket[] _fromBuckets;
 		private readonly TypeBucket[] _requireBuckets;
 		private readonly TypeBucket[] _excludeBuckets;
-		private readonly Func<GodotObject, bool>? _predicate;
+		private readonly Func<InstanceHandle, bool>? _predicate;
 		
 		[EditorBrowsable(EditorBrowsableState.Never)]
 		[Obsolete("Internal Constructor. Use 'ScriptInstanceRegistry.Query<T>()' instead. Directly use may cause unexpected results.")]
@@ -317,7 +314,7 @@ public static class ScriptInstanceRegistry
 			TypeBucket[] fromBuckets,
 			TypeBucket[]? requireBuckets = null,
 			TypeBucket[]? excludeBuckets = null,
-			Func<GodotObject, bool>? predicate = null)
+			Func<InstanceHandle, bool>? predicate = null)
 		{
 			_fromBuckets = fromBuckets;
 			_requireBuckets = requireBuckets ?? [];
@@ -332,7 +329,7 @@ public static class ScriptInstanceRegistry
 			private readonly TypeBucket[] _fromBuckets;
 			private readonly TypeBucket[] _requireBuckets;
 			private readonly TypeBucket[] _excludeBuckets;
-			private readonly Func<GodotObject, bool>? _predicate;
+			private readonly Func<InstanceHandle, bool>? _predicate;
 			
 			private TypeBucket.BucketEnumerator _bucketEnumerator;
 			private int _fromBucketsIndex;
@@ -343,12 +340,6 @@ public static class ScriptInstanceRegistry
 				get;
 				private set;
 			} = default;
-
-			internal GodotObject CurrentInstance
-			{
-				get;
-				private set;
-			} = null!;
 			
 			internal InstanceEnumerator(InstanceQuery query)
 			{
@@ -379,7 +370,7 @@ public static class ScriptInstanceRegistry
 
 					while (_bucketEnumerator.MoveNext())
 					{
-						(ulong instanceId, GodotObject instance) = _bucketEnumerator.Current;
+						(ulong instanceId, var instanceWeakRef) = _bucketEnumerator.Current;
 						int slot = ExtractSlotIndex(instanceId);
 
 						if (_requireBuckets.Length != 0)
@@ -417,11 +408,11 @@ public static class ScriptInstanceRegistry
 							}
 							if (alreadyYielded) continue;
 						}
+
+						var handle = new InstanceHandle(instanceId, instanceWeakRef);
+						if (_predicate is not null && !_predicate(handle)) continue;
 						
-						if (_predicate is not null && !_predicate(instance)) continue;
-						
-						Current = new InstanceHandle(instanceId, instance);
-						CurrentInstance = instance;
+						Current = handle;
 						return true;
 					}
 					
@@ -434,7 +425,6 @@ public static class ScriptInstanceRegistry
 					_bucketEnumerator = new TypeBucket.BucketEnumerator(null!);
 				}
 				Current = default!;
-				CurrentInstance = null!;
 				return false;
 			}
 		}
@@ -559,7 +549,7 @@ public static class ScriptInstanceRegistry
 				_predicate);
 		#endregion
 		
-		public InstanceQuery Where(Func<GodotObject, bool> predicate1)
+		public InstanceQuery Where(Func<InstanceHandle, bool> predicate1)
 		{
 			ArgumentNullException.ThrowIfNull(predicate1);
 			if (_predicate is null) return new InstanceQuery(_fromBuckets, _requireBuckets, _excludeBuckets, predicate1);
@@ -572,7 +562,7 @@ public static class ScriptInstanceRegistry
 		{
 			foreach (TypeBucket bucket in _fromBuckets)
 			{
-				if (!bucket.TryGetInstance(handle.Slot, out var instanceId, out var instance)) continue;
+				if (!bucket.TryGetInstance(handle.Slot, out _)) continue;
 				
 				foreach (var bucket1 in _requireBuckets)
 				{
@@ -584,8 +574,8 @@ public static class ScriptInstanceRegistry
 					if (bucket1.Contains(handle.Slot)) return false;
 				}
 				
-				if (ExtractValidator(instanceId) != handle.Validator) return false;
-				return _predicate is null || _predicate(instance);
+				if (!handle.IsValid()) return false;
+				return _predicate is null || _predicate(handle);
 			}
 			return false;
 		}
@@ -594,20 +584,20 @@ public static class ScriptInstanceRegistry
 		public int Count() => Count(static _ => true);
 		public bool Any() => First(static _ => true, out _);
 		public bool All() => All(static _ => true);
-		public bool First(out GodotObject? instance) => First(static _ => true, out instance);
+		public bool First([MaybeNullWhen(false)] out GodotObject instance) => First(static _ => true, out instance);
 		public GodotObject Single() => Single(static _ => true);
-		public bool TrySingle(out GodotObject? instance) => TrySingle(static _ => true, out instance);
+		public bool TrySingle([MaybeNullWhen(false)] out GodotObject instance) => TrySingle(static _ => true, out instance);
 		#endregion
 
 		#region HasPredicate
-		public int Count(Func<GodotObject, bool> predicate1)
+		public int Count(Func<InstanceHandle, bool> predicate1)
 		{
 			ArgumentNullException.ThrowIfNull(predicate1);
 			int matchCount = 0;
 			var e = GetEnumerator();
 			while (e.MoveNext())
 			{
-				if (predicate1(e.CurrentInstance))
+				if (predicate1(e.Current))
 				{
 					matchCount++;
 				}
@@ -615,66 +605,68 @@ public static class ScriptInstanceRegistry
 			return matchCount;
 		}
 		
-		public bool First(Func<GodotObject, bool> predicate1, out GodotObject? instance)
+		public bool First(Func<InstanceHandle, bool> predicate1, [MaybeNullWhen(false)] out GodotObject instance) => First<GodotObject>(predicate1, out instance);
+		public bool First<T>(Func<InstanceHandle, bool> predicate1, [MaybeNullWhen(false)] out T instance) where T : GodotObject
 		{
 			ArgumentNullException.ThrowIfNull(predicate1);
 			var e = GetEnumerator();
 			while (e.MoveNext())
 			{
-				if (!predicate1(e.CurrentInstance)) continue;
-				instance = e.CurrentInstance;
+				if (!predicate1(e.Current) || !e.Current.TryAsInstance<T>(out var candidate)) continue;
+				instance = candidate;
 				return true;
 			}
 			instance = null;
 			return false;
 		}
 		
-		public bool Any(Func<GodotObject, bool> predicate1) => First(predicate1, out _);
+		public bool Any(Func<InstanceHandle, bool> predicate1) => First(predicate1, out _);
 		
-		public bool All(Func<GodotObject, bool> predicate1)
+		public bool All(Func<InstanceHandle, bool> predicate1)
 		{
 			ArgumentNullException.ThrowIfNull(predicate1);
 			var e = GetEnumerator();
 			while (e.MoveNext())
 			{
-				if (!predicate1(e.CurrentInstance))
+				if (!predicate1(e.Current))
 				{
 					return false;
 				}
 			}
 			return true;
 		}
-		
-		public GodotObject Single(Func<GodotObject, bool> predicate1)
+
+		public GodotObject Single(Func<InstanceHandle, bool> predicate1) => Single<GodotObject>(predicate1);
+		public T Single<T>(Func<InstanceHandle, bool> predicate1) where T : GodotObject
 		{
 			ArgumentNullException.ThrowIfNull(predicate1);
-			GodotObject? matchedInstance = null;
-			bool hasFoundMatch = false;
+			
+			T? matchedInstance = null;
 			var e = GetEnumerator();
 			while (e.MoveNext())
 			{
-				if (!predicate1(e.CurrentInstance)) continue;
-				if (hasFoundMatch) throw new InvalidOperationException($"{nameof(GodotObject)}: more than one match");
-				matchedInstance = e.CurrentInstance;
-				hasFoundMatch = true;
+				if (!predicate1(e.Current) || !e.Current.TryAsInstance<T>(out var candidate)) continue;
+				if (matchedInstance is not null) throw new InvalidOperationException($"{nameof(GodotObject)}: more than one match");
+				matchedInstance = candidate;
 			}
-			return !hasFoundMatch ? throw new InvalidOperationException($"{nameof(GodotObject)}: no match") : matchedInstance!;
+			return matchedInstance ?? throw new InvalidOperationException($"{nameof(GodotObject)}: no match");
 		}
 		
-		public bool TrySingle(Func<GodotObject, bool> predicate1, out GodotObject? instance)
+		public bool TrySingle(Func<InstanceHandle, bool> predicate1, [MaybeNullWhen(false)] out GodotObject instance) => TrySingle<GodotObject>(predicate1, out instance);
+		public bool TrySingle<T>(Func<InstanceHandle, bool> predicate1, [MaybeNullWhen(false)] out T instance) where T : GodotObject
 		{
 			ArgumentNullException.ThrowIfNull(predicate1);
 			instance = null;
 			var e = GetEnumerator();
 			while (e.MoveNext())
 			{
-				if (!predicate1(e.CurrentInstance)) continue;
+				if (!predicate1(e.Current) || !e.Current.TryAsInstance<T>(out var candidate)) continue;
 				if (instance is not null)
 				{
 					instance = null;
 					return false;
 				}
-				instance = e.CurrentInstance;
+				instance = candidate;
 			}
 			return (instance is not null);
 		}
