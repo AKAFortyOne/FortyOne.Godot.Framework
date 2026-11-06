@@ -105,92 +105,99 @@ namespace FortyOne.SourceGenerators
 				.AppendLine("using Godot;")
 				.AppendLine("using FortyOne.Tools;")
 				.AppendLine("using System;")
-				.AppendLine()
-				.AppendLine($"namespace {namespaceName};")
 				.AppendLine("#nullable enable")
-				.AppendLine("#pragma warning disable CS0618 // Type or member is obsolete");
-			stringBuilder.AppendLine();
-			
-			stringBuilder.AppendLine($"public partial class {className}");
+				.AppendLine("#pragma warning disable CS0618 // Type or member is obsolete")
+				.AppendLine();
+			stringBuilder.AppendLine($"namespace {namespaceName}");
 			using (stringBuilder.CodeBlock())
 			{
-				stringBuilder
-					.AppendLine($"public static FromFirst<{className}> From({className} sender) => new FromFirst<{className}>(sender);")
-					.AppendLine($"public static ToFirst<{className}> To(GodotObject receiver) => new ToFirst<{className}>(null, receiver);")
-					.AppendLine();
-				
-				foreach (SignalInfo info in groupSignal)
+				stringBuilder.AppendLine($"public partial class {className}");
+				using (stringBuilder.CodeBlock())
 				{
-					string signalName = info.SignalName.Replace("EventHandler", "");
-					var parsedParameters = GeneratorHelper.ProcessParameters(info.Parameters);
+					stringBuilder
+						.AppendLine($"public static FromFirst<{className}> From({className} sender) => new FromFirst<{className}>(sender);")
+						.AppendLine($"public static ToFirst<{className}> To(GodotObject receiver) => new ToFirst<{className}>(null, receiver);")
+						.AppendLine();
 					
-					stringBuilder.AppendLine($"public struct {signalName}EventArgs({GeneratorHelper.GetParametersList(parsedParameters)}) : IPublishableEventArgs<{className}, {signalName}EventArgs>");
-						using (stringBuilder.CodeBlock())
-						{
-							stringBuilder
-								.AppendLine($"public static EventBus<{className}, {signalName}EventArgs>.Descriptor Desc => DescHolder.Value;")
-								.AppendLine($"public {className}? Publisher {{ get; private set; }}")
-								.AppendLine($"public GodotObject Subscriber {{ get; private set; }} = null!;")
-								.AppendLine();
-
-							stringBuilder.AppendLine("private static class DescHolder");
+					foreach (SignalInfo info in groupSignal)
+					{
+						string signalName = info.SignalName.Replace("EventHandler", "");
+						var parsedParameters = GeneratorHelper.ProcessParameters(info.Parameters);
+						
+						stringBuilder.AppendLine($"public struct {signalName}EventArgs({GeneratorHelper.GetParametersList(parsedParameters)}) : IPublishableEventArgs<{className}, {signalName}EventArgs>");
 							using (stringBuilder.CodeBlock())
 							{
 								stringBuilder
-									.AppendLine(
-										$"public static EventBus<{className}, {signalName}EventArgs>.Descriptor Value {{ get; }} = new EventBus<{className}, {signalName}EventArgs>.Descriptor(");
-								using (stringBuilder.Indent())
+									.AppendLine($"public static EventBus<{className}, {signalName}EventArgs>.Descriptor Desc => DescHolder.Value;")
+									.AppendLine($"public {className}? Publisher {{ get; private set; }}")
+									.AppendLine($"public GodotObject Subscriber {{ get; private set; }} = null!;")
+									.AppendLine();
+
+								stringBuilder.AppendLine("private static class DescHolder");
+								using (stringBuilder.CodeBlock())
 								{
-									stringBuilder.AppendLine($"{className}.SignalName.{signalName},");
-									stringBuilder.Append($"Callable.From(static (");
-									if (info.Parameters.Length > 0)
+									stringBuilder
+										.AppendLine(
+											$"public static EventBus<{className}, {signalName}EventArgs>.Descriptor Value {{ get; }} = new EventBus<{className}, {signalName}EventArgs>.Descriptor(");
+									using (stringBuilder.Indent())
 									{
-										stringBuilder.Append($"{GeneratorHelper.GetParametersList(parsedParameters)}, ");
+										stringBuilder.AppendLine($"{className}.SignalName.{signalName},");
+										stringBuilder.Append($"Callable.From(static (");
+										if (info.Parameters.Length > 0)
+										{
+											stringBuilder.Append($"{GeneratorHelper.GetParametersList(parsedParameters)}, ");
+										}
+										stringBuilder.AppendLine($"GodotObject source) => EventBus<{className}, {signalName}EventArgs>.Relay.OnEmitted(source, new {signalName}EventArgs({GeneratorHelper.GetParametersList(parsedParameters, false)})))");
 									}
-									stringBuilder.AppendLine($"GodotObject source) => EventBus<{className}, {signalName}EventArgs>.Relay.OnEmitted(source, new {signalName}EventArgs({GeneratorHelper.GetParametersList(parsedParameters, false)})))");
+									stringBuilder.AppendLine(");");
 								}
-								stringBuilder.AppendLine(");");
-							}
-							stringBuilder.AppendLine();
-							stringBuilder.AppendLine($"{className}? ISubscribableEventArgs<{className}, {signalName}EventArgs>.Publisher");
-							using (stringBuilder.CodeBlock())
-							{
-								stringBuilder
-									.AppendLine("get => Publisher;")
-									.AppendLine("set => Publisher = value;");
-							}
-							stringBuilder.AppendLine();
+								stringBuilder.AppendLine();
+								stringBuilder.AppendLine($"{className}? ISubscribableEventArgs<{className}, {signalName}EventArgs>.Publisher");
+								using (stringBuilder.CodeBlock())
+								{
+									stringBuilder
+										.AppendLine("get => Publisher;")
+										.AppendLine("set => Publisher = value;");
+								}
+								stringBuilder.AppendLine();
 
-							stringBuilder.AppendLine($"GodotObject ISubscribableEventArgs<{className}, {signalName}EventArgs>.Subscriber");
-							using (stringBuilder.CodeBlock())
-							{
-								stringBuilder
-									.AppendLine("get => Subscriber;")
-									.AppendLine("set => Subscriber = value;");
-							}
-							stringBuilder.AppendLine();
+								stringBuilder.AppendLine($"GodotObject ISubscribableEventArgs<{className}, {signalName}EventArgs>.Subscriber");
+								using (stringBuilder.CodeBlock())
+								{
+									stringBuilder
+										.AppendLine("get => Subscriber;")
+										.AppendLine("set => Subscriber = value;");
+								}
+								stringBuilder.AppendLine();
 
-							foreach (ParsedParameter parsedParameter in parsedParameters)
-							{
-								stringBuilder.AppendLine($"public readonly {parsedParameter.TypeName} {GeneratorHelper.FirstToUpper(parsedParameter.ParameterName)} = {parsedParameter.ParameterName};");
+								foreach (ParsedParameter parsedParameter in parsedParameters)
+								{
+									stringBuilder.AppendLine($"public readonly {parsedParameter.TypeName} {GeneratorHelper.FirstToUpper(parsedParameter.ParameterName)} = {parsedParameter.ParameterName};");
+								}
 							}
-						}
-						stringBuilder.AppendLine($"public static void Publish({signalName}EventArgs args) => EventBus<{className}, {signalName}EventArgs>.ExecutePublishSingle(null, null, args);");
-						stringBuilder.AppendLine();
+							stringBuilder.AppendLine($"public static void Publish({signalName}EventArgs args) => EventBus<{className}, {signalName}EventArgs>.ExecutePublishSingle(null, null, args);");
+							stringBuilder.AppendLine();
+					}
 				}
 			}
 			stringBuilder.AppendLine();
 
-			stringBuilder.AppendLine($"public static class {className}Extensions");
+			stringBuilder.AppendLine($"namespace FortyOne.Tools");
 			using (stringBuilder.CodeBlock())
 			{
-				foreach (SignalInfo info in groupSignal)
+				stringBuilder
+					.AppendLine($"using {namespaceName};")
+					.AppendLine($"public static class {className}Extensions");
+				using (stringBuilder.CodeBlock())
 				{
-					string signalName = info.SignalName.Replace("EventHandler", "");
-					stringBuilder
-						.AppendLine($"public static EventSubscriptionToken Subscribe(this ToFirst<{className}> chain, Action<{className}.{signalName}EventArgs> callback) => chain.Subscribe<{className}.{signalName}EventArgs>(callback);")
-						.AppendLine($"public static EventSubscriptionToken Subscribe(this FromEnd<{className}> chain, Action<{className}.{signalName}EventArgs> callback) => chain.Subscribe<{className}.{signalName}EventArgs>(callback);")
-						.AppendLine();
+					foreach (SignalInfo info in groupSignal)
+					{
+						string signalName = info.SignalName.Replace("EventHandler", "");
+						stringBuilder
+							.AppendLine($"public static EventSubscriptionToken Subscribe(this ToFirst<{className}> chain, Action<{className}.{signalName}EventArgs> callback) => chain.Subscribe<{className}.{signalName}EventArgs>(callback);")
+							.AppendLine($"public static EventSubscriptionToken Subscribe(this FromEnd<{className}> chain, Action<{className}.{signalName}EventArgs> callback) => chain.Subscribe<{className}.{signalName}EventArgs>(callback);")
+							.AppendLine();
+					}
 				}
 			}
 		}

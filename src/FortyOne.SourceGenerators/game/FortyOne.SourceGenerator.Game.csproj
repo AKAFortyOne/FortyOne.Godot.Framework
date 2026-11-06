@@ -5,6 +5,7 @@
         <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
         <Nullable>enable</Nullable>
         <ImplicitUsings>true</ImplicitUsings>
+        <RootNamespace>SourceGenerator.Game</RootNamespace>
     </PropertyGroup>
     <ItemGroup>
         <Compile Include="..\shared\**\*.cs" LinkBase="shared" />

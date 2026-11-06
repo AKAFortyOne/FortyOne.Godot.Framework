@@ -4,9 +4,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FortyOne.Fody", "src\FortyO
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FortyOne.Tools", "src\FortyOne.Tools\FortyOne.Tools.csproj", "{6DE1887C-450C-4F8D-AA48-F6CB146799E5}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SourceGenerator.Framework", "src\FortyOne.SourceGenerators\framework\SourceGenerator.Framework.csproj", "{F9404BA9-F602-4B65-929F-EA1B27B68869}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FortyOne.SourceGenerator.Framework", "src\FortyOne.SourceGenerators\framework\FortyOne.SourceGenerator.Framework.csproj", "{F9404BA9-F602-4B65-929F-EA1B27B68869}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SourceGenerator.Game", "src\FortyOne.SourceGenerators\game\SourceGenerator.Game.csproj", "{1B5FCB0B-6277-4E44-987D-AC095383D6A5}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FortyOne.SourceGenerator.Game", "src\FortyOne.SourceGenerators\game\FortyOne.SourceGenerator.Game.csproj", "{1B5FCB0B-6277-4E44-987D-AC095383D6A5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
