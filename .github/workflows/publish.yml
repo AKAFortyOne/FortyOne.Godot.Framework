@@ -1,0 +1,31 @@
+name: publish
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Pack
+        run: |
+          dotnet pack src/FortyOne.Fody/FortyOne.Fody.csproj   -c Release -o artifacts
+          dotnet pack src/FortyOne.Tools/FortyOne.Tools.csproj -c Release -o artifacts
+          
+      - name: NuGet login
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: AKAFortyOne
+
+      - name: Push
+        run: dotnet nuget push artifacts/*.nupkg --api-key ${{ steps.login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
