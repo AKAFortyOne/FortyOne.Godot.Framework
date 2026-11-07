@@ -112,6 +112,7 @@ namespace FortyOne.Fody
 			public new readonly static StringName _Notification = "_Notification";
 		}
 
+		#region ConstructorCallback
 		public static void ConstructorCallbackHelper(GodotObject instance, Action<object, ulong> constructorCallback)
 		{
 			if (GodotObject.IsInstanceValid(instance))
@@ -119,18 +120,19 @@ namespace FortyOne.Fody
 				constructorCallback.Invoke(instance, instance.GetInstanceId());
 			}
 		}
-		
+		#endregion
+
 		public static bool BeforeHasGodotClassMethodCheck(in godot_string_name method)
 		{
 			return (method == MethodName._Notification);
 		}
 		
-		/// <param name="instance">_Notification所在的类的实例</param>
-		/// <param name="what">_Notification的消息</param>
-		/// <returns></returns>
+		#region PredeleteCallback
 		public static bool BeforeNotificationCheck(GodotObject instance, int what)
 		{
-			return (GodotObject.IsInstanceValid(instance) && what == GodotObject.NotificationPredelete);
+			if (!GodotObject.IsInstanceValid(instance)) return false;
+			if (what == GodotObject.NotificationPredelete) return true;
+			return false;
 		}
 		
 		public static bool BeforeDisposeCheck(GodotObject instance)
@@ -142,5 +144,6 @@ namespace FortyOne.Fody
 		{
 			predeleteCallback.Invoke(instance.GetInstanceId());
 		}
+		#endregion
 	}
 }

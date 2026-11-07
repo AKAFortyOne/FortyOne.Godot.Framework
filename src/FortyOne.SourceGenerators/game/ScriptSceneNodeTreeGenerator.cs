@@ -31,7 +31,7 @@ namespace FortyOne.SourceGenerators
 
 		private static void BuildSceneNodeTree(IndentedStringBuilder stringBuilder, ImmutableArray<AdditionalText> allScenes, string projectDir)
 		{
-			var regex = new Regex(@"\[node name=""(?<name>[^""]+)""(?: type=""(?<type>[^""]+)"")?(?: parent=""(?<parent>[^""]+)"")?");
+			var regex = new Regex(@"\[node name=""(?<name>[^""]+)""(?: type=""(?<type>[^""]+)"")?(?: parent=""(?<parent>[^""]+)"")?[^\]]*\](?=(?:\r?\n(?!\[).*)*?\r?\nunique_name_in_owner\s*=\s*true)", RegexOptions.Compiled);
 			
 			foreach (var scene in allScenes)
 			{
